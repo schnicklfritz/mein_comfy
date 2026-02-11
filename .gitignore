@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Docker
+.docker_build_cache/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Custom Scripts (Local testing)
+scripts/local_test.sh
