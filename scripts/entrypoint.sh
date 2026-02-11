@@ -10,7 +10,6 @@ echo "🚀 Starting mein_comfy (Minimal Base)..."
 if [ ! -f "$COMFY_DIR/main.py" ]; then
     echo "⚠️ ComfyUI not found in $COMFY_DIR. Installing..."
     
-    # Try to find it elsewhere in the image first (to save download)
     if [ -d "/app/ComfyUI" ]; then
         echo "   Found at /app/ComfyUI. Moving..."
         cp -r /app/ComfyUI "$COMFY_DIR"
@@ -29,6 +28,10 @@ if [ ! -d "$MANAGER_DIR" ]; then
     mkdir -p "$COMFY_DIR/custom_nodes"
     git clone https://github.com/ltdrdata/ComfyUI-Manager.git "$MANAGER_DIR"
 fi
+
+# --- 2.5 [FIX] Force Update Frontend Package ---
+echo "🔄 Updating ComfyUI Frontend to match Backend..."
+pip install --upgrade comfyui-frontend-package
 
 # --- 3. Define Symlinks (Persistent Storage) ---
 declare -A SYMLINKS
@@ -55,7 +58,6 @@ for INTERNAL_PATH in "${!SYMLINKS[@]}"; do
     CONTAINER_PATH="$COMFY_DIR/$INTERNAL_PATH"
     CONTAINER_PARENT=$(dirname "$CONTAINER_PATH")
 
-    # A. Create Host Path
     if [ ! -d "$HOST_PATH" ]; then
         if [[ "$TARGET_NAME" == "checkpoints" || "$TARGET_NAME" == "diffusion_models" ]]; then
             mkdir -p "$HOST_PATH/wan2.1" "$HOST_PATH/sdxl" "$HOST_PATH/flux"
@@ -63,12 +65,10 @@ for INTERNAL_PATH in "${!SYMLINKS[@]}"; do
         mkdir -p "$HOST_PATH"
     fi
 
-    # B. Create Container Parent
     if [ ! -d "$CONTAINER_PARENT" ]; then
         mkdir -p "$CONTAINER_PARENT"
     fi
 
-    # C. Handle Existing Data (Move it to persistence)
     if [ -d "$CONTAINER_PATH" ] && [ ! -L "$CONTAINER_PATH" ]; then
         if [ -n "$(ls -A $CONTAINER_PATH 2>/dev/null)" ]; then
             echo "   📦 Moving default files from $INTERNAL_PATH..."
@@ -77,7 +77,6 @@ for INTERNAL_PATH in "${!SYMLINKS[@]}"; do
         rm -rf "$CONTAINER_PATH"
     fi
 
-    # D. Create Symlink
     if [ ! -L "$CONTAINER_PATH" ]; then
         echo "   🔗 Linking $INTERNAL_PATH -> $HOST_PATH"
         ln -s "$HOST_PATH" "$CONTAINER_PATH"
