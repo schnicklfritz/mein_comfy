@@ -1,10 +1,36 @@
 #!/bin/bash
 set -e
 
+COMFY_DIR="/root/ComfyUI"
+MANAGER_DIR="$COMFY_DIR/custom_nodes/ComfyUI-Manager"
+
 echo "🚀 Starting mein_comfy (Minimal Base)..."
 
-# --- 1. Define Symlinks ---
-# Map internal ComfyUI paths to your persistent folders in /workspace
+# --- 1. Self-Healing: Install ComfyUI if missing ---
+if [ ! -f "$COMFY_DIR/main.py" ]; then
+    echo "⚠️ ComfyUI not found in $COMFY_DIR. Installing..."
+    
+    # Try to find it elsewhere in the image first (to save download)
+    if [ -d "/app/ComfyUI" ]; then
+        echo "   Found at /app/ComfyUI. Moving..."
+        cp -r /app/ComfyUI "$COMFY_DIR"
+    elif [ -d "/ComfyUI" ]; then
+        echo "   Found at /ComfyUI. Moving..."
+        cp -r /ComfyUI "$COMFY_DIR"
+    else
+        echo "   Downloading fresh ComfyUI..."
+        git clone https://github.com/comfyanonymous/ComfyUI.git "$COMFY_DIR"
+    fi
+fi
+
+# --- 2. Self-Healing: Install Manager if missing ---
+if [ ! -d "$MANAGER_DIR" ]; then
+    echo "⚠️ ComfyUI-Manager not found. Installing..."
+    mkdir -p "$COMFY_DIR/custom_nodes"
+    git clone https://github.com/ltdrdata/ComfyUI-Manager.git "$MANAGER_DIR"
+fi
+
+# --- 3. Define Symlinks (Persistent Storage) ---
 declare -A SYMLINKS
 SYMLINKS=(
     ["models/checkpoints"]="checkpoints"
@@ -19,37 +45,33 @@ SYMLINKS=(
     ["output"]="output"
 )
 
-# Base persistent directory (Mounted Volume)
 PERSISTENT_ROOT="/workspace/ComfyUI_Data"
 mkdir -p "$PERSISTENT_ROOT"
 
-# --- 2. Smart Linking Loop ---
+# --- 4. Smart Linking Loop ---
 for INTERNAL_PATH in "${!SYMLINKS[@]}"; do
     TARGET_NAME="${SYMLINKS[$INTERNAL_PATH]}"
     HOST_PATH="$PERSISTENT_ROOT/$TARGET_NAME"
-    CONTAINER_PATH="/root/ComfyUI/$INTERNAL_PATH"
+    CONTAINER_PATH="$COMFY_DIR/$INTERNAL_PATH"
     CONTAINER_PARENT=$(dirname "$CONTAINER_PATH")
 
-    # A. Create Host Path if missing
+    # A. Create Host Path
     if [ ! -d "$HOST_PATH" ]; then
-        # Create subfolders for heavy models to stay organized
         if [[ "$TARGET_NAME" == "checkpoints" || "$TARGET_NAME" == "diffusion_models" ]]; then
             mkdir -p "$HOST_PATH/wan2.1" "$HOST_PATH/sdxl" "$HOST_PATH/flux"
         fi
         mkdir -p "$HOST_PATH"
     fi
 
-    # B. [FIX] Create Container Parent Directory if missing
-    # Prevents "ln: failed to create symbolic link... No such file or directory"
+    # B. Create Container Parent
     if [ ! -d "$CONTAINER_PARENT" ]; then
-        echo "   Creating parent dir: $CONTAINER_PARENT"
         mkdir -p "$CONTAINER_PARENT"
     fi
 
-    # C. Handle Existing Container Data (Safe Move)
+    # C. Handle Existing Data (Move it to persistence)
     if [ -d "$CONTAINER_PATH" ] && [ ! -L "$CONTAINER_PATH" ]; then
         if [ -n "$(ls -A $CONTAINER_PATH 2>/dev/null)" ]; then
-            echo "   📦 Moving default files from $INTERNAL_PATH to persistent storage..."
+            echo "   📦 Moving default files from $INTERNAL_PATH..."
             cp -rn "$CONTAINER_PATH"/* "$HOST_PATH/" 2>/dev/null || true
         fi
         rm -rf "$CONTAINER_PATH"
@@ -62,8 +84,7 @@ for INTERNAL_PATH in "${!SYMLINKS[@]}"; do
     fi
 done
 
-# --- 3. Launch ComfyUI ---
-echo "✅ Setup Complete. Launching ComfyUI on Port 8188..."
-cd /root/ComfyUI
-# Use exec to ensure ComfyUI gets PID 1 signals
+# --- 5. Launch ---
+echo "✅ Setup Complete. Launching ComfyUI..."
+cd "$COMFY_DIR"
 exec python3 main.py $CLI_ARGS
