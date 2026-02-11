@@ -1,56 +1,37 @@
 # ==========================================
-# BASE: NVIDIA CUDA 12.8 (Blackwell Ready)
+# BASE: Proven CUDA 12.8 ComfyUI Image
 # ==========================================
-FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04
+FROM yanwk/comfyui-boot:cu128-slim
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PATH="/app/venv/bin:$PATH"
+# The base image already has:
+# - CUDA 12.8
+# - PyTorch (Correct version for 5090)
+# - ComfyUI + ComfyUI Manager
+# - Common deps (ffmpeg, git, etc)
 
-# 1. System Dependencies
-RUN apt-get update && apt-get install -y \
-    python3.10 python3.10-venv python3-pip git wget \
-    libgl1 libglib2.0-0 libgoogle-perftools4 \
-    && rm -rf /var/lib/apt/lists/*
-
-# 2. Setup Directory Structure
-WORKDIR /app
-RUN python3.10 -m venv venv
-RUN pip install --upgrade pip wheel
-
-# 3. Install Torch 2.6 (Nightly for CUDA 12.8 support)
-# We use the nightly index to ensure 50-series support
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
-
-# 4. Install ComfyUI
-RUN git clone https://github.com/comfyanonymous/ComfyUI.git
-WORKDIR /app/ComfyUI
-RUN pip install -r requirements.txt
-
-# 5. Install "Speed" & Utility Custom Nodes
-WORKDIR /app/ComfyUI/custom_nodes
-RUN git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
-    git clone https://github.com/rgthree/rgthree-comfy.git && \
+# 1. Install YOUR Must-Have Custom Nodes
+WORKDIR /root/ComfyUI/custom_nodes
+RUN git clone https://github.com/rgthree/rgthree-comfy.git && \
     git clone https://github.com/kijai/ComfyUI-KJNodes.git
 
-# Install requirements for custom nodes
-WORKDIR /app/ComfyUI
-RUN pip install -r custom_nodes/ComfyUI-Manager/requirements.txt && \
-    pip install -r custom_nodes/rgthree-comfy/requirements.txt && \
+# Install requirements for them
+WORKDIR /root/ComfyUI
+RUN pip install -r custom_nodes/rgthree-comfy/requirements.txt && \
     pip install -r custom_nodes/ComfyUI-KJNodes/requirements.txt
 
-# 6. Copy Our Entrypoint Script
+# 2. Copy YOUR Setup Script
+# We use /app/entrypoint.sh to keep it distinct
+USER root
 COPY scripts/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# 7. Environment Variables for Speed
-# TCMalloc improves memory allocation speed
-ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4"
-# Force 5090 optimizations
+# 3. Environment Overrides
+# Ensure we see all GPUs and have correct capabilities
 ENV NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,video,display \
+    CLI_ARGS="--listen --port 8188 --fast --highvram"
 
-WORKDIR /app/ComfyUI
+# 4. Entrypoint
+# We hijack the entrypoint to run YOUR symlink logic first, 
+# then launch ComfyUI using the base image's environment.
 ENTRYPOINT ["/app/entrypoint.sh"]
-
