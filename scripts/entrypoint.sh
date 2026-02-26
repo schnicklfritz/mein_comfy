@@ -2,61 +2,47 @@
 set -e
 
 COMFY_DIR="/root/ComfyUI"
-PERSISTENT_ROOT="/workspace/ComfyUI_Data"
 
-echo "🛰️ Initializing Pod Storage..."
+echo "🚀 Starting mein_comfy..."
 
-# 1. Create Persistent Folders & Permissions
-mkdir -p "$PERSISTENT_ROOT/checkpoints"
-mkdir -p "$PERSISTENT_ROOT/rclone-config"
-chmod -R 777 "$PERSISTENT_ROOT"
-
-# 2. CREATE THE USER SCRIPT IN /WORKSPACE
-# This is for manual use: cd /workspace && ./start_rclone.sh
-cat << 'EOF' > /workspace/start_rclone.sh
-#!/bin/bash
-echo "🚀 Starting Rclone GUI on port 5572..."
-echo "🔑 Login: admin / password123"
-rclone rcd --rc-web-gui \
-    --rc-addr :5572 \
-    --rc-user admin \
-    --rc-pass password123 \
-    --rc-web-gui-no-open-browser \
-    --config /workspace/ComfyUI_Data/rclone-config/rclone.conf
-EOF
-chmod +x /workspace/start_rclone.sh
-
-# 3. ComfyUI Self-Healing
-# Note: Base image includes ComfyUI-Manager per your request
-if [ ! -f "$COMFY_DIR/main.py" ]; then
-    echo "⬇️ Downloading ComfyUI..."
-    git clone https://github.com "$COMFY_DIR"
-fi
-
-# 4. Smart Linking Loop
-declare -A SYMLINKS=(
+# --- Symlinks (Persistent Storage → Backblaze staging) ---
+declare -A SYMLINKS
+SYMLINKS=(
     ["models/checkpoints"]="checkpoints"
     ["models/loras"]="loras"
+    ["models/vae"]="vae"
+    ["models/clip"]="text_encoders"
+    ["models/diffusion_models"]="diffusion_models"
+    ["models/upscale_models"]="upscale_models"
+    ["models/controlnet"]="controlnet"
+    ["models/embeddings"]="embeddings"
     ["input"]="input"
     ["output"]="output"
 )
 
-for INT in "${!SYMLINKS[@]}"; do
-    EXT="$PERSISTENT_ROOT/${SYMLINKS[$INT]}"
-    mkdir -p "$EXT"
-    
-    # Move default files to persistent storage if folder exists and isn't a link
-    if [ -d "$COMFY_DIR/$INT" ] && [ ! -L "$COMFY_DIR/$INT" ]; then
-        echo "📦 Moving files from $INT to persistent storage..."
-        cp -rn "$COMFY_DIR/$INT"/* "$EXT/" 2>/dev/null || true
-        rm -rf "$COMFY_DIR/$INT"
+PERSISTENT_ROOT="/workspace/ComfyUI_Data"
+mkdir -p "$PERSISTENT_ROOT"
+
+for INTERNAL_PATH in "${!SYMLINKS[@]}"; do
+    TARGET_NAME="${SYMLINKS[$INTERNAL_PATH]}"
+    HOST_PATH="$PERSISTENT_ROOT/$TARGET_NAME"
+    CONTAINER_PATH="$COMFY_DIR/$INTERNAL_PATH"
+    CONTAINER_PARENT=$(dirname "$CONTAINER_PATH")
+
+    mkdir -p "$HOST_PATH"
+    mkdir -p "$CONTAINER_PARENT"
+
+    if [ -d "$CONTAINER_PATH" ] && [ ! -L "$CONTAINER_PATH" ]; then
+        cp -rn "$CONTAINER_PATH"/* "$HOST_PATH/" 2>/dev/null || true
+        rm -rf "$CONTAINER_PATH"
     fi
-    
-    # Create the symlink
-    ln -sfn "$EXT" "$COMFY_DIR/$INT"
+
+    if [ ! -L "$CONTAINER_PATH" ]; then
+        ln -s "$HOST_PATH" "$CONTAINER_PATH"
+    fi
 done
 
-# 5. Launch ComfyUI
-echo "✅ Setup Complete. Launching ComfyUI..."
+echo "✅ Launching ComfyUI..."
 cd "$COMFY_DIR"
-exec python3 main.py --listen 0.0.0.0 --port 8188 $CLI_ARGS
+exec python3 main.py ${CLI_ARGS:-}
+
