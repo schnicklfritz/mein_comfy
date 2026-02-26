@@ -1,27 +1,21 @@
-#!/bin/bash
-set -e
+# --- Blackwell (sm_120) Hardware Alignment ---
+echo "🚀 Aligning environment for Blackwell Architecture..."
 
-echo "🔧 Installing Custom Nodes for mein_comfy..."
+# 1. Force-install Blackwell-compatible Triton/SageAttention
+# Standard pip wheels often lack sm_120 support; source build is required
+pip install --upgrade setuptools wheel
+pip install sageattention --no-binary sageattention
 
-COMFY_DIR="/root/ComfyUI"
-NODES_DIR="$COMFY_DIR/custom_nodes"
+# 2. Ensure FlashAttention/SageAttention can compile
+# OpenSUSE uses zypper; installing ninja if not already present in Dockerfile
+if ! command -v ninja &> /dev/null; then
+    zypper --non-interactive install ninja
+fi
 
-cd "$NODES_DIR"
+# 3. Environment Variable Injection for Blackwell Performance
+# These align with your --bf16-unet and --use-sage-attention flags
+export TORCH_CUDA_ARCH_LIST="12.0"
+export VLLM_ATTENTION_BACKEND=FLASHINFER
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 
-# --- Core Speed Nodes ---
-echo "📦 Installing rgthree-comfy..."
-git clone https://github.com/rgthree/rgthree-comfy.git
-pip install -r rgthree-comfy/requirements.txt
-
-echo "📦 Installing ComfyUI-KJNodes..."
-git clone https://github.com/kijai/ComfyUI-KJNodes.git
-pip install -r ComfyUI-KJNodes/requirements.txt
-
-# --- Optional: Video/Advanced Nodes ---
-# Uncomment if you need these
-# echo "📦 Installing ComfyUI-VideoHelperSuite..."
-# git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git
-# pip install -r ComfyUI-VideoHelperSuite/requirements.txt
-
-echo "✅ Node installation complete!"
-echo "🔄 Restart ComfyUI to activate nodes (or use Manager's restart button)."
+echo "✅ Blackwell alignment complete."
