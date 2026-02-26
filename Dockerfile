@@ -1,28 +1,19 @@
-# ==========================================
-# BASE: CUDA 12.8 Blackwell-Ready (openSUSE)
-# ==========================================
-FROM yanwk/comfyui-boot:cu128-slim
+FROM opensuse/leap:latest
 
-USER root
+# Refresh repositories and install dependencies + Rclone
+RUN zypper refresh && \
+    zypper --non-interactive install git curl sudo python3 python3-pip && \
+    curl https://rclone.org | bash && \
+    zypper clean -a
 
-# 1. Install Build Essentials for Blackwell Kernel JIT
-# openSUSE uses 'devel_basis' for compilers; 'ninja' is for SageAttention
-RUN zypper --non-interactive refresh && \
-    zypper --non-interactive install -t pattern devel_basis && \
-    zypper --non-interactive install git ninja && \
-    zypper clean --all
+# Copy the system entrypoint into the image
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# 2. Copy Setup Scripts (Matching your local paths)
-COPY scripts/entrypoint.sh /app/entrypoint.sh
-COPY scripts/install_nodes.sh /app/install_nodes.sh
-RUN chmod +x /app/*.sh
+# Ensure script is executable
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# 3. Environment & Blackwell Architecture Flags
-ENV NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=all \
-    TORCH_CUDA_ARCH_LIST="12.0" \
-    # Merged Blackwell arguments from your template
-    CLI_ARGS="--listen --port 8188 --bf16-unet --highvram --use-sage-attention --weight-streaming --dont-upcast-attention"
+# Expose ComfyUI (8188) and Rclone GUI (5572)
+EXPOSE 8188 5572
 
-# 4. Launch
-ENTRYPOINT ["/app/entrypoint.sh"]
+WORKDIR /root
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
