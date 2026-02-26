@@ -2,16 +2,19 @@ FROM yanwk/comfyui-boot:cu128-slim
 
 USER root
 
-# 1. Refresh repositories and install openSUSE versions of your tools
+# 1. Refresh repositories
+# 2. Install using correct openSUSE Tumbleweed names
+# netcat-openbsd is correct, but we'll ensure it's pulled cleanly.
+# libGL1 is provided by Mesa-libGL1.
 RUN zypper -n ref && \
     zypper -n in --no-recommends \
     curl unzip fuse3 ca-certificates \
-    libGL1 libglib-2_0-0 \
+    Mesa-libGL1 libglib-2_0-0 \
     gcc-c++ ninja \
     netcat-openbsd \
     && zypper clean -a
 
-# 2. Standalone Rclone
+# 3. Standalone Rclone
 RUN curl https://rclone.org/install.sh | bash
 
 COPY scripts/entrypoint.sh /app/entrypoint.sh
@@ -21,8 +24,6 @@ RUN chmod +x /app/*.sh
 EXPOSE 8188 5572
 
 # RTX 5090 Blackwell Optimization
-# --bf16-unet: Mandatory to keep Flux/Chroma in VRAM (32GB)
-# --use-sage-attention: Native Blackwell acceleration
 ENV CLI_ARGS="--listen --port 8188 --fast --use-sage-attention --bf16-unet --highvram"
 
 ENTRYPOINT ["/app/entrypoint.sh"]
