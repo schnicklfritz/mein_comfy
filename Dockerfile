@@ -7,7 +7,7 @@ RUN zypper refresh && \
     zypper clean -a
 
 # Copy the system entrypoint into the image
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Ensure script is executable
 RUN chmod +x /usr/local/bin/entrypoint.sh
