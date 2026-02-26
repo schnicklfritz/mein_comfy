@@ -3,7 +3,6 @@ FROM opensuse/leap:latest
 # Refresh repositories and install dependencies + Rclone
 RUN zypper refresh && \
     zypper --non-interactive install git curl sudo python3 python3-pip && \
-    curl https://rclone.org | bash && \
     zypper clean -a
 
 # Copy the system entrypoint into the image
