@@ -1,4 +1,4 @@
-FROM opensuse/leap:latest
+FROM yanwk/comfyui-boot:cu128-slim
 
 # Refresh repositories and install dependencies + Rclone
 RUN zypper refresh && \
