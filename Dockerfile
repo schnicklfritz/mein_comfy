@@ -1,34 +1,25 @@
 # ==========================================
 # mein_comfy - ComfyUI for Quickpod RTX 5090
-# Base: yanwk/comfyui-boot:cu129-slim
-#   cu129 = Turing → Blackwell (RTX 50xx) support
-#   cu128 stopped receiving updates
+# Base: ashleykza/comfyui:5090-py311
+#   CUDA 12.8, Python 3.11, Blackwell support
+#   ComfyUI + Manager handled natively by base image
 # ==========================================
-FROM yanwk/comfyui-boot:cu129-slim
+FROM ashleykza/comfyui:5090-py311
 
-USER root
+# B2 credentials - set in Quickpod template env vars, never in image
+# EXTRA_ARGS passed to ComfyUI main.py - override in Quickpod env vars
+ENV EXTRA_ARGS="--listen --port 8188 --fast" \
+    B2_KEY_ID="" \
+    B2_APPLICATION_KEY="" \
+    B2_BUCKET=""
 
-# Useful tools missing from slim image
-RUN zypper --non-interactive install -y \
-    tini \
-    procps \
-    lsof \
-    && zypper clean --all
+# Copy our pre_start hook - runs before ComfyUI launches each session
+COPY scripts/pre_start.sh /pre_start.sh
+RUN chmod +x /pre_start.sh
 
-COPY scripts/entrypoint.sh /app/entrypoint.sh
+# install_nodes.sh for adding custom nodes at build time (optional)
 COPY scripts/install_nodes.sh /app/install_nodes.sh
-RUN chmod +x /app/*.sh
-
-# NOTE: yanwk/comfyui-boot:cu129-slim already bundles ComfyUI + ComfyUI-Manager
-# at /default-comfyui-bundle/ComfyUI - no clone needed
-
-# tini as PID 1 so ComfyUI can be killed/restarted without killing the pod
-# CLI_ARGS passed through to ComfyUI - override in Quickpod env vars
-# B2 credentials - set B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET in Quickpod env
-ENV NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=all \
-    CLI_ARGS="--listen --port 8188 --fast"
+RUN chmod +x /app/install_nodes.sh \
+    && bash /app/install_nodes.sh
 
 EXPOSE 8188
-
-ENTRYPOINT ["tini", "--", "/app/entrypoint.sh"]
