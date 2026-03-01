@@ -27,7 +27,7 @@ RUN chmod +x /app/*.sh
 # B2 credentials - set B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET in Quickpod env
 ENV NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=all \
-    CLI_ARGS="--listen --port 8188 --fast --enable-manager"
+    CLI_ARGS="--listen --port 8188 --fast"
 
 EXPOSE 8188
 
