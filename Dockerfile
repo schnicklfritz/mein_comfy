@@ -19,11 +19,8 @@ COPY scripts/entrypoint.sh /app/entrypoint.sh
 COPY scripts/install_nodes.sh /app/install_nodes.sh
 RUN chmod +x /app/*.sh
 
-# Base image already has ComfyUI at /default-comfyui-bundle/ComfyUI
-# Just add ComfyUI-Manager (not included in base) and install its deps
-RUN git clone --depth=1 https://github.com/ltdrdata/ComfyUI-Manager \
-        /default-comfyui-bundle/ComfyUI/custom_nodes/ComfyUI-Manager \
-    && pip install -r /default-comfyui-bundle/ComfyUI/custom_nodes/ComfyUI-Manager/requirements.txt
+# NOTE: yanwk/comfyui-boot:cu129-slim already bundles ComfyUI + ComfyUI-Manager
+# at /default-comfyui-bundle/ComfyUI - no clone needed
 
 # tini as PID 1 so ComfyUI can be killed/restarted without killing the pod
 # CLI_ARGS passed through to ComfyUI - override in Quickpod env vars
