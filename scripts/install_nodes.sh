@@ -1,8 +1,6 @@
 #!/bin/bash
 # /app/install_nodes.sh
-# Custom node installer for mein_comfy
-# Runs every pod start (pod is ephemeral - nodes must reinstall)
-# Add nodes below using install_node function
+# Additional custom nodes - ComfyUI-Manager already handled in entrypoint.sh
 
 set -e
 
@@ -31,11 +29,11 @@ echo "  Installing custom nodes..."
 echo "########################################"
 
 # ── Add nodes here ────────────────────────────────────────────────────────────
-# install_node "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
 # install_node "https://github.com/cubiq/ComfyUI_IPAdapter_plus"
 # install_node "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
 # install_node "https://github.com/rgthree/rgthree-comfy"
 # install_node "https://github.com/WASasquatch/was-node-suite-comfyui"
+# install_node "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
 
 echo "########################################"
 echo "  Node installation complete."

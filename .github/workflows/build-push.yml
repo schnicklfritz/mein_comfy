@@ -7,12 +7,12 @@ on:
       - 'Dockerfile'
       - 'scripts/**'
       - '.github/workflows/**'
-  workflow_dispatch:  # Allows manual button click to build
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday 6am UTC - picks up yanwk base updates
 
 env:
-  # CHANGE THIS to your actual image name
   IMAGE_NAME: mein_comfy
-  # Pushing to Docker Hub?
   REGISTRY: docker.io
 
 jobs:
@@ -43,14 +43,17 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          pull: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Use cache to speed up re-builds
+          platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
