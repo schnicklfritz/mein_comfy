@@ -195,10 +195,16 @@ READMEEOF
 echo "[INFO] README.txt written to /workspace/README.txt"
 
 # ── Copy ComfyUI from image bundle ────────────────────────────────────────────
+# Bundle was cloned into /default-comfyui-bundle/ at image build time (Dockerfile)
 echo "[INFO] Copying ComfyUI from image bundle..."
 mkdir -p "$COMFY_DIR"
 cp --archive "/default-comfyui-bundle/ComfyUI/." "$COMFY_DIR/"
 echo "[INFO] ComfyUI ready at $COMFY_DIR"
+
+# ── Update ComfyUI-Manager (pull latest on top of bundled version) ────────────
+# Done AFTER cp so we're updating the live copy, not the bundle
+echo "[INFO] Updating ComfyUI-Manager..."
+cd "$COMFY_DIR/custom_nodes/ComfyUI-Manager" && git pull || echo "[WARN] Manager update failed (offline or rate-limited)"
 
 # ── Symlink /workspace into ComfyUI ──────────────────────────────────────────
 echo "[INFO] Setting up symlinks..."
@@ -225,10 +231,6 @@ for INTERNAL_PATH in "${!SYMLINKS[@]}"; do
     ln -sf "$TARGET" "$LINK"
     echo "[INFO] Linked: $LINK -> $TARGET"
 done
-
-# ── Update ComfyUI-Manager (already in bundle, pull latest) ──────────────────
-echo "[INFO] Updating ComfyUI-Manager..."
-cd "$COMFY_DIR/custom_nodes/ComfyUI-Manager" && git pull || echo "[WARN] Manager update failed"
 
 # ── Install additional custom nodes ──────────────────────────────────────────
 echo "[INFO] Running install_nodes.sh..."
