@@ -217,8 +217,11 @@ mkdir -p "$COMFY_DIR"
 cp --archive "/default-comfyui-bundle/ComfyUI/." "$COMFY_DIR/"
 echo "[INFO] ComfyUI ready at $COMFY_DIR"
 
-# ── Update ComfyUI-Manager (pull latest on top of bundled version) ────────────
+# ── Update ComfyUI core + Manager to latest ──────────────────────────────────────────
 # Done AFTER cp so we're updating the live copy, not the bundle
+echo "[INFO] Updating ComfyUI core..."
+cd "$COMFY_DIR" && git pull || echo "[WARN] ComfyUI update failed (offline or rate-limited)"
+
 echo "[INFO] Updating ComfyUI-Manager..."
 cd "$COMFY_DIR/custom_nodes/ComfyUI-Manager" && git pull || echo "[WARN] Manager update failed (offline or rate-limited)"
 
