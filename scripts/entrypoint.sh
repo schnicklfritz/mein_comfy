@@ -195,7 +195,23 @@ READMEEOF
 echo "[INFO] README.txt written to /workspace/README.txt"
 
 # ── Copy ComfyUI from image bundle ────────────────────────────────────────────
-# Bundle was cloned into /default-comfyui-bundle/ at image build time (Dockerfile)
+# yanwk base pre-creates /root/ComfyUI with symlinks where we need real dirs.
+# Remove those symlinks first or cp --archive will fail.
+echo "[INFO] Clearing pre-existing symlinks from base image in $COMFY_DIR..."
+for LINK in \
+    "$COMFY_DIR/input" \
+    "$COMFY_DIR/output" \
+    "$COMFY_DIR/models/checkpoints" \
+    "$COMFY_DIR/models/clip" \
+    "$COMFY_DIR/models/controlnet" \
+    "$COMFY_DIR/models/diffusion_models" \
+    "$COMFY_DIR/models/embeddings" \
+    "$COMFY_DIR/models/loras" \
+    "$COMFY_DIR/models/upscale_models" \
+    "$COMFY_DIR/models/vae"; do
+    [ -L "$LINK" ] && rm -f "$LINK" && echo "[INFO] Removed symlink: $LINK"
+done
+
 echo "[INFO] Copying ComfyUI from image bundle..."
 mkdir -p "$COMFY_DIR"
 cp --archive "/default-comfyui-bundle/ComfyUI/." "$COMFY_DIR/"
