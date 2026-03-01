@@ -19,11 +19,9 @@ COPY scripts/entrypoint.sh /app/entrypoint.sh
 COPY scripts/install_nodes.sh /app/install_nodes.sh
 RUN chmod +x /app/*.sh
 
-# Bundle ComfyUI + Manager into image so entrypoint cp is instant (no runtime clone)
-RUN git clone --depth=1 https://github.com/comfyanonymous/ComfyUI \
-        /default-comfyui-bundle/ComfyUI \
-    && pip install -r /default-comfyui-bundle/ComfyUI/requirements.txt \
-    && git clone --depth=1 https://github.com/ltdrdata/ComfyUI-Manager \
+# Base image already has ComfyUI at /default-comfyui-bundle/ComfyUI
+# Just add ComfyUI-Manager (not included in base) and install its deps
+RUN git clone --depth=1 https://github.com/ltdrdata/ComfyUI-Manager \
         /default-comfyui-bundle/ComfyUI/custom_nodes/ComfyUI-Manager \
     && pip install -r /default-comfyui-bundle/ComfyUI/custom_nodes/ComfyUI-Manager/requirements.txt
 
