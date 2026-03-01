@@ -4,7 +4,7 @@
 #   CUDA 12.8, Python 3.11, Blackwell support
 #   ComfyUI + Manager handled natively by base image
 # ==========================================
-FROM ashleykza/comfyui:5090-py311
+FROM ashleykza/comfyui:5090-py311-v0.3.36
 
 # B2 credentials - set in Quickpod template env vars, never in image
 # EXTRA_ARGS passed to ComfyUI main.py - override in Quickpod env vars
