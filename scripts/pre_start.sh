@@ -114,10 +114,19 @@ rclone copy /workspace/output/ b2:${B2_BUCKET}/output/ --transfers 16 --progress
 rclone ls b2:${B2_BUCKET}/checkpoints/
 
 ── PORTS ──────────────────────────────────────────────────────────
-8188  ComfyUI
+3000  ComfyUI (nginx proxy -> internal 3001)
 8000  App Manager (start/stop ComfyUI)
 7777  File browser
 2999  SSH
+
+── RESTART ComfyUI ────────────────────────────────────────────────
+# Kill ComfyUI (port 3001 process)
+pkill -f "main.py"
+
+# Restart using the same script the image uses
+bash /start_comfyui.sh ${EXTRA_ARGS}
+
+# Or use the App Manager web UI on port 8000
 
 ── LOGS ───────────────────────────────────────────────────────────
 tail -f /workspace/logs/comfyui.log
@@ -147,5 +156,9 @@ echo "[INFO] README.txt written to /workspace/README.txt"
 
 echo "########################################"
 echo "  mein_comfy pre_start complete."
-echo "  ComfyUI launching via base image..."
+echo "  Launching ComfyUI..."
 echo "########################################"
+
+# start_comfyui.sh handles: venv activation, port 3001, logging to /workspace/logs/comfyui.log
+# EXTRA_ARGS is passed through as positional args
+bash /start_comfyui.sh ${EXTRA_ARGS}
