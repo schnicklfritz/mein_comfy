@@ -40,10 +40,48 @@ mkdir -p \
     /workspace/models/upscale_models \
     /workspace/models/controlnet \
     /workspace/models/embeddings \
+    /workspace/models/text_encoders \
+    /workspace/models/audio_encoders \
+    /workspace/models/clip_vision \
+    /workspace/models/unet \
+    /workspace/models/diffusers \
+    /workspace/models/model_patches \
+    /workspace/models/photomaker \
+    /workspace/models/style_models \
+    /workspace/models/gligen \
+    /workspace/models/hypernetworks \
+    /workspace/models/latent_upscale_models \
+    /workspace/models/vae_approx \
     /workspace/input \
     /workspace/output \
     /workspace/workflows \
     /workspace/logs
+
+# ── Clone ComfyUI if missing, update if present ──────────────────────────────
+if [ ! -f "$COMFY_DIR/main.py" ]; then
+    echo "[INFO] ComfyUI not found, cloning..."
+    rm -rf "$COMFY_DIR"
+    git clone --depth=1 https://github.com/comfyanonymous/ComfyUI "$COMFY_DIR"
+
+    echo "[INFO] Creating venv and installing requirements..."
+    cd "$COMFY_DIR"
+    python3.11 -m venv venv
+    source venv/bin/activate
+    pip install --upgrade pip
+    pip install -r requirements.txt
+
+    echo "[INFO] Installing ComfyUI-Manager..."
+    git clone --depth=1 https://github.com/ltdrdata/ComfyUI-Manager         "$COMFY_DIR/custom_nodes/ComfyUI-Manager"
+    pip install -r "$COMFY_DIR/custom_nodes/ComfyUI-Manager/requirements.txt"
+    deactivate
+    echo "[INFO] ComfyUI install complete"
+else
+    echo "[INFO] Updating ComfyUI core..."
+    cd "$COMFY_DIR" && git pull || echo "[WARN] ComfyUI update failed"
+
+    echo "[INFO] Updating ComfyUI-Manager..."
+    cd "$COMFY_DIR/custom_nodes/ComfyUI-Manager" && git pull || echo "[WARN] Manager update failed"
+fi
 
 # ── Symlink /workspace model dirs into ComfyUI ───────────────────────────────
 # Wait for base image to finish setting up ComfyUI before symlinking
@@ -58,6 +96,18 @@ declare -A SYMLINKS=(
     ["models/upscale_models"]="/workspace/models/upscale_models"
     ["models/controlnet"]="/workspace/models/controlnet"
     ["models/embeddings"]="/workspace/models/embeddings"
+    ["models/text_encoders"]="/workspace/models/text_encoders"
+    ["models/audio_encoders"]="/workspace/models/audio_encoders"
+    ["models/clip_vision"]="/workspace/models/clip_vision"
+    ["models/unet"]="/workspace/models/unet"
+    ["models/diffusers"]="/workspace/models/diffusers"
+    ["models/model_patches"]="/workspace/models/model_patches"
+    ["models/photomaker"]="/workspace/models/photomaker"
+    ["models/style_models"]="/workspace/models/style_models"
+    ["models/gligen"]="/workspace/models/gligen"
+    ["models/hypernetworks"]="/workspace/models/hypernetworks"
+    ["models/latent_upscale_models"]="/workspace/models/latent_upscale_models"
+    ["models/vae_approx"]="/workspace/models/vae_approx"
     ["input"]="/workspace/input"
     ["output"]="/workspace/output"
     ["user/default/workflows"]="/workspace/workflows"
@@ -142,7 +192,19 @@ tail -f /workspace/logs/comfyui.log
 │   ├── diffusion_models/
 │   ├── upscale_models/
 │   ├── controlnet/
-│   └── embeddings/
+│   ├── embeddings/
+│   ├── text_encoders/
+│   ├── audio_encoders/
+│   ├── clip_vision/
+│   ├── unet/
+│   ├── diffusers/
+│   ├── model_patches/
+│   ├── photomaker/
+│   ├── style_models/
+│   ├── gligen/
+│   ├── hypernetworks/
+│   ├── latent_upscale_models/
+│   └── vae_approx/
 ├── input/
 ├── output/
 ├── workflows/
