@@ -2,7 +2,14 @@
 # mein_comfy - ComfyUI for Quickpod RTX 5090
 # Base: ashleykza/comfyui:5090-py311-v0.3.36
 #   CUDA 12.8, Python 3.11, Blackwell support
-#   ComfyUI + Manager handled natively by base image
+#
+# Build-time: ComfyUI + Manager staged to /opt/comfyui-staging
+#   with venv at /opt/comfyui-staging/venv (mirrors /workspace/ComfyUI/venv)
+# Runtime: pre_start.sh deploys staging → /workspace/ComfyUI on fresh pod
+#   On restart: git fetch+reset + pip sync on all nodes
+#
+# start_comfyui.sh (base image) expects:
+#   cd /workspace/ComfyUI && source venv/bin/activate && python3 main.py
 # ==========================================
 FROM ashleykza/comfyui:5090-py311-v0.3.36
 
@@ -13,15 +20,26 @@ ENV EXTRA_ARGS="--fast --use-pytorch-cross-attention" \
     B2_APPLICATION_KEY="" \
     B2_BUCKET=""
 
-# Copy our pre_start hook - runs before ComfyUI launches each session
-COPY scripts/pre_start.sh /pre_start.sh
-RUN chmod +x /pre_start.sh
+# ── Build-time: stage ComfyUI + Manager + venv ───────────────────────────────
+# /workspace does not exist at build time.
+# Venv is built inside staging dir to mirror the live path:
+#   /opt/comfyui-staging/venv → becomes → /workspace/ComfyUI/venv
+# start_comfyui.sh does: cd /workspace/ComfyUI && source venv/bin/activate
+RUN git clone --depth=1 https://github.com/comfyanonymous/ComfyUI /opt/comfyui-staging \
+    && git clone --depth=1 https://github.com/ltdrdata/ComfyUI-Manager \
+        /opt/comfyui-staging/custom_nodes/ComfyUI-Manager \
+    && cd /opt/comfyui-staging \
+    && python3.11 -m venv venv \
+    && venv/bin/pip install --upgrade pip --quiet \
+    && venv/bin/pip install --quiet -r requirements.txt \
+    && venv/bin/pip install --quiet \
+        -r custom_nodes/ComfyUI-Manager/requirements.txt
 
-# install_nodes.sh for adding custom nodes at build time (optional)
+# Copy our hooks
+COPY scripts/pre_start.sh /pre_start.sh
 COPY scripts/install_nodes.sh /app/install_nodes.sh
-RUN chmod +x /app/install_nodes.sh \
+RUN chmod +x /pre_start.sh /app/install_nodes.sh \
     && bash /app/install_nodes.sh
 
 # ComfyUI accessible on port 3000 (nginx proxy -> internal 3001)
-# Open port 3000 in Quickpod template
 EXPOSE 3000

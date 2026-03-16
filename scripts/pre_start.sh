@@ -11,6 +11,35 @@ echo "  mein_comfy pre_start running..."
 echo "########################################"
 
 COMFY_DIR="/workspace/ComfyUI"
+STAGING_DIR="/opt/comfyui-staging"
+# Venv lives inside ComfyUI dir - matches start_comfyui.sh:
+#   cd /workspace/ComfyUI && source venv/bin/activate
+VENV_PIP="$COMFY_DIR/venv/bin/pip"
+
+# ── Helper: update a shallow-cloned git repo ─────────────────────────────────
+# git pull fails on --depth=1 clones; fetch+reset is safe for both shallow/full
+git_update() {
+    local dir="$1"
+    local label="$2"
+    if [ -d "$dir/.git" ]; then
+        echo "[INFO] Updating $label..."
+        git -C "$dir" fetch --depth=1 origin HEAD 2>&1 | sed 's/^/  /' \
+            || { echo "[WARN] $label fetch failed - continuing with current version"; return 0; }
+        git -C "$dir" reset --hard FETCH_HEAD 2>&1 | sed 's/^/  /' \
+            || echo "[WARN] $label reset failed"
+    else
+        echo "[WARN] $label: not a git repo at $dir - skipping update"
+    fi
+}
+
+# ── Helper: install requirements.txt if it exists ────────────────────────────
+pip_install_req() {
+    local req="$1"
+    if [ -f "$req" ]; then
+        echo "[INFO] pip install -r $req"
+        "$VENV_PIP" install -q -r "$req" || echo "[WARN] pip install failed for $req"
+    fi
+}
 
 # ── Auto-configure rclone B2 from Quickpod env vars ──────────────────────────
 if [ -n "${B2_KEY_ID}" ] && [ -n "${B2_APPLICATION_KEY}" ]; then
@@ -57,34 +86,57 @@ mkdir -p \
     /workspace/workflows \
     /workspace/logs
 
-# ── Clone ComfyUI if missing, update if present ──────────────────────────────
+# ── Deploy or update ComfyUI ─────────────────────────────────────────────────
 if [ ! -f "$COMFY_DIR/main.py" ]; then
-    echo "[INFO] ComfyUI not found, cloning..."
-    rm -rf "$COMFY_DIR"
-    git clone --depth=1 https://github.com/comfyanonymous/ComfyUI "$COMFY_DIR"
+    # ── FIRST START: copy from build-time staging, then pull latest ──────────
+    echo "[INFO] ComfyUI not found in /workspace - deploying from staging..."
 
-    echo "[INFO] Creating venv and installing requirements..."
-    cd "$COMFY_DIR"
-    python3.11 -m venv venv
-    source venv/bin/activate
-    pip install --upgrade pip
-    pip install -r requirements.txt
+    if [ -d "$STAGING_DIR" ]; then
+        cp -a "$STAGING_DIR" "$COMFY_DIR"
+        echo "[INFO] Staged copy complete"
+    else
+        echo "[WARN] Staging dir missing - cloning from scratch (slow path)..."
+        git clone --depth=1 https://github.com/comfyanonymous/ComfyUI "$COMFY_DIR"
+        git clone --depth=1 https://github.com/ltdrdata/ComfyUI-Manager \
+            "$COMFY_DIR/custom_nodes/ComfyUI-Manager"
+    fi
 
-    echo "[INFO] Installing ComfyUI-Manager..."
-    git clone --depth=1 https://github.com/ltdrdata/ComfyUI-Manager         "$COMFY_DIR/custom_nodes/ComfyUI-Manager"
-    pip install -r "$COMFY_DIR/custom_nodes/ComfyUI-Manager/requirements.txt"
-    deactivate
-    echo "[INFO] ComfyUI install complete"
+    # Staging venv is pre-built - VENV_PIP now resolves correctly
+    # Pull latest on top of staged copy (image may be days old at deploy time)
+    git_update "$COMFY_DIR" "ComfyUI"
+    git_update "$COMFY_DIR/custom_nodes/ComfyUI-Manager" "ComfyUI-Manager"
+
+    echo "[INFO] Syncing pip deps after update..."
+    pip_install_req "$COMFY_DIR/requirements.txt"
+    pip_install_req "$COMFY_DIR/custom_nodes/ComfyUI-Manager/requirements.txt"
+
+    echo "[INFO] ComfyUI first-start deploy complete"
+
 else
-    echo "[INFO] Updating ComfyUI core..."
-    cd "$COMFY_DIR" && git pull || echo "[WARN] ComfyUI update failed"
+    # ── SUBSEQUENT STARTS: update everything ─────────────────────────────────
+    echo "[INFO] ComfyUI found - running updates..."
 
-    echo "[INFO] Updating ComfyUI-Manager..."
-    cd "$COMFY_DIR/custom_nodes/ComfyUI-Manager" && git pull || echo "[WARN] Manager update failed"
+    git_update "$COMFY_DIR" "ComfyUI"
+    git_update "$COMFY_DIR/custom_nodes/ComfyUI-Manager" "ComfyUI-Manager"
+
+    echo "[INFO] Updating pip deps for ComfyUI core..."
+    pip_install_req "$COMFY_DIR/requirements.txt"
+
+    echo "[INFO] Updating pip deps for ComfyUI-Manager..."
+    pip_install_req "$COMFY_DIR/custom_nodes/ComfyUI-Manager/requirements.txt"
+
+    # ── Update all baked-in custom nodes' pip deps ───────────────────────────
+    echo "[INFO] Updating pip deps for all custom nodes..."
+    for req in "$COMFY_DIR/custom_nodes"/*/requirements.txt; do
+        node_name=$(basename "$(dirname "$req")")
+        echo "[INFO]   -> $node_name"
+        pip_install_req "$req"
+    done
+
+    echo "[INFO] Update complete"
 fi
 
 # ── Symlink /workspace model dirs into ComfyUI ───────────────────────────────
-# Wait for base image to finish setting up ComfyUI before symlinking
 echo "[INFO] Setting up symlinks..."
 
 declare -A SYMLINKS=(
@@ -117,7 +169,7 @@ for INTERNAL_PATH in "${!SYMLINKS[@]}"; do
     TARGET="${SYMLINKS[$INTERNAL_PATH]}"
     LINK="$COMFY_DIR/$INTERNAL_PATH"
     mkdir -p "$(dirname "$LINK")"
-    # Remove if it's a real dir or wrong symlink
+    # Remove if it's a real dir or wrong/stale symlink
     [ -d "$LINK" ] && [ ! -L "$LINK" ] && rm -rf "$LINK"
     [ -L "$LINK" ] && rm -f "$LINK"
     ln -sf "$TARGET" "$LINK"
@@ -169,6 +221,11 @@ rclone ls b2:${B2_BUCKET}/checkpoints/
 7777  File browser
 2999  SSH
 
+── COMFYUI-MANAGER WORKFLOW REGISTRY ──────────────────────────────
+Manager is updated on every pod start (git pull + pip deps).
+To install/update workflows: open Manager UI → "Install Workflows"
+Workflows saved to /workspace/workflows/ (persists on stop).
+
 ── RESTART ComfyUI ────────────────────────────────────────────────
 # Kill ComfyUI (port 3001 process)
 pkill -f "main.py"
@@ -183,7 +240,7 @@ tail -f /workspace/logs/comfyui.log
 
 ── FOLDER MAP ─────────────────────────────────────────────────────
 /workspace/
-├── ComfyUI/            base image managed - do not edit directly
+├── ComfyUI/            updated on every pod start
 ├── models/
 │   ├── checkpoints/    symlinked into ComfyUI
 │   ├── loras/
@@ -207,7 +264,7 @@ tail -f /workspace/logs/comfyui.log
 │   └── vae_approx/
 ├── input/
 ├── output/
-├── workflows/
+├── workflows/          symlinked from ComfyUI - persists on stop
 ├── logs/
 │   └── comfyui.log
 └── README.txt
