@@ -15,7 +15,8 @@ FROM ashleykza/comfyui:5090-py311-v0.3.36
 
 # B2 credentials - set in Quickpod template env vars, never in image
 # EXTRA_ARGS passed to ComfyUI main.py - override in Quickpod env vars
-ENV EXTRA_ARGS="--fast --use-pytorch-cross-attention" \
+ENV EXTRA_ARGS="--fast --use-pytorch-cross-attention --highvram --disable-xformers reserve-vram 2.0" \
+ENV PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
     B2_KEY_ID="" \
     B2_APPLICATION_KEY="" \
     B2_BUCKET=""
