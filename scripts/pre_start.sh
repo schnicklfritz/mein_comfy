@@ -280,4 +280,5 @@ echo "########################################"
 
 # start_comfyui.sh handles: venv activation, port 3001, logging to /workspace/logs/comfyui.log
 # EXTRA_ARGS is passed through as positional args
+# NOTE: start.sh (base image) does NOT call start_comfyui.sh itself - this line is required
 bash /start_comfyui.sh ${EXTRA_ARGS}

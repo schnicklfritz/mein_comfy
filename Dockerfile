@@ -11,12 +11,16 @@
 # start_comfyui.sh (base image) expects:
 #   cd /workspace/ComfyUI && source venv/bin/activate && python3 main.py
 # ==========================================
-FROM ashleykza/comfyui:5090-py311-v0.3.36
+FROM ashleykza/comfyui:cu128-py311-v0.18.2
 
 # B2 credentials - set in Quickpod template env vars, never in image
 # EXTRA_ARGS passed to ComfyUI main.py - override in Quickpod env vars
-ENV EXTRA_ARGS="--fast --use-pytorch-cross-attention --highvram --disable-xformers --reserve-vram 2.0" \
-    PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True" \
+ENV EXTRA_ARGS="--fast --disable-xformers --reserve-vram 0.5 --cuda-malloc --cuda-stream" \
+    PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:512,roundup_power2_divisions:4" \
+    CUDA_MODULE_LOADING="LAZY" \
+    TORCH_CUDNN_V8_API_ENABLED=1 \
+    TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1 \
+    NVIDIA_TF32_OVERRIDE=1 \
     B2_KEY_ID="" \
     B2_APPLICATION_KEY="" \
     B2_BUCKET=""
