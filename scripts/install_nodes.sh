@@ -12,18 +12,6 @@ echo "  install_nodes.sh - build time"
 echo "########################################"
 
 git clone --depth=1 \
-    https://github.com/stavsap/comfyui-ollama \
-    "$NODES_DIR/comfyui-ollama"
-"$VENV_PIP" install -q -r "$NODES_DIR/comfyui-ollama/requirements.txt" \
-    || echo "[WARN] comfyui-ollama deps failed"
-
-git clone --depth=1 \
-    https://github.com/AIGODLIKE/ComfyUI-Copilot \
-    "$NODES_DIR/ComfyUI-Copilot"
-"$VENV_PIP" install -q -r "$NODES_DIR/ComfyUI-Copilot/requirements.txt" \
-    || echo "[WARN] ComfyUI-Copilot deps failed"
-
-git clone --depth=1 \
     https://github.com/DanielPFlorian/ComfyUI-WorkflowGenerator \
     "$NODES_DIR/ComfyUI-WorkflowGenerator"
 "$VENV_PIP" install -q -r "$NODES_DIR/ComfyUI-WorkflowGenerator/requirements.txt" \
