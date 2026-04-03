@@ -15,6 +15,7 @@ STAGING_DIR="/opt/comfyui-staging"
 # Venv lives inside ComfyUI dir - matches start_comfyui.sh:
 #   cd /workspace/ComfyUI && source venv/bin/activate
 VENV_PIP="$COMFY_DIR/venv/bin/pip"
+VENV_PYTHON="$COMFY_DIR/venv/bin/python"
 
 # ── Helper: update a shallow-cloned git repo ─────────────────────────────────
 # git pull fails on --depth=1 clones; fetch+reset is safe for both shallow/full
@@ -176,6 +177,19 @@ for INTERNAL_PATH in "${!SYMLINKS[@]}"; do
     echo "[INFO] Linked: $LINK -> $TARGET"
 done
 
+# ── Start ComfyUI MCP server (joenorton) ─────────────────────────────────────
+# Streamable-HTTP MCP server on :9000 — Open WebUI connects natively
+# ComfyUI runs on internal port 3001
+if [ -f "/opt/comfyui-mcp-server/server.py" ]; then
+    echo "[INFO] Starting ComfyUI MCP server on :9000..."
+    export COMFY_MCP_DEFAULT_COMFYUI_URL="http://localhost:3001"
+    "$VENV_PYTHON" /opt/comfyui-mcp-server/server.py \
+        > /workspace/logs/comfyui-mcp.log 2>&1 &
+    echo "[INFO] ComfyUI MCP server PID: $!"
+else
+    echo "[WARN] ComfyUI MCP server not found at /opt/comfyui-mcp-server/server.py - skipping"
+fi
+
 # ── Write README.txt ──────────────────────────────────────────────────────────
 cat > /workspace/README.txt << 'READMEEOF'
 ########################################
@@ -220,6 +234,7 @@ rclone ls b2:${B2_BUCKET}/checkpoints/
 8000  App Manager (start/stop ComfyUI)
 7777  File browser
 2999  SSH
+9000  ComfyUI MCP server (streamable-HTTP)
 
 ── COMFYUI-MANAGER WORKFLOW REGISTRY ──────────────────────────────
 Manager is updated on every pod start (git pull + pip deps).
@@ -237,6 +252,7 @@ bash /start_comfyui.sh ${EXTRA_ARGS}
 
 ── LOGS ───────────────────────────────────────────────────────────
 tail -f /workspace/logs/comfyui.log
+tail -f /workspace/logs/comfyui-mcp.log
 
 ── FOLDER MAP ─────────────────────────────────────────────────────
 /workspace/
@@ -266,7 +282,8 @@ tail -f /workspace/logs/comfyui.log
 ├── output/
 ├── workflows/          symlinked from ComfyUI - persists on stop
 ├── logs/
-│   └── comfyui.log
+│   ├── comfyui.log
+│   └── comfyui-mcp.log
 └── README.txt
 
 ########################################
