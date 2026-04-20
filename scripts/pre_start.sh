@@ -37,11 +37,13 @@ git_update() {
 pip_install_req() {
     local req="$1"
     if [ -f "$req" ]; then
-        echo "[INFO] pip install -r $req"
-        "$VENV_PIP" install -q -r "$req" || echo "[WARN] pip install failed for $req"
+        echo "[INFO] pip install -r $req (torch-safe)"
+        grep -vE "^(torch|torchvision|torchaudio)([ =><!]|$)" "$req" \
+            > /tmp/req_filtered.txt
+        "$VENV_PIP" install -q -r /tmp/req_filtered.txt \
+            || echo "[WARN] pip install failed for $req"
     fi
 }
-
 # ── Auto-configure rclone B2 from Quickpod env vars ──────────────────────────
 if [ -n "${B2_KEY_ID}" ] && [ -n "${B2_APPLICATION_KEY}" ]; then
     export RCLONE_CONFIG_B2_TYPE=b2
@@ -85,7 +87,9 @@ mkdir -p \
     /workspace/input \
     /workspace/output \
     /workspace/workflows \
-    /workspace/logs
+    /workspace/logs \
+    /workspace/models/TTS \
+    /workspace/models/RVS
 
 # ── Deploy or update ComfyUI ─────────────────────────────────────────────────
 if [ ! -f "$COMFY_DIR/main.py" ]; then
@@ -161,6 +165,8 @@ declare -A SYMLINKS=(
     ["models/hypernetworks"]="/workspace/models/hypernetworks"
     ["models/latent_upscale_models"]="/workspace/models/latent_upscale_models"
     ["models/vae_approx"]="/workspace/models/vae_approx"
+    ["models/TTS"]="/workspace/models/TTS"
+    ["models/RVC"]="/workspace/models/RVC"
     ["input"]="/workspace/input"
     ["output"]="/workspace/output"
     ["user/default/workflows"]="/workspace/workflows"

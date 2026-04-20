@@ -15,7 +15,7 @@ FROM ashleykza/comfyui:cu128-py311-v0.18.2
 
 # B2 credentials - set in Quickpod template env vars, never in image
 # EXTRA_ARGS passed to ComfyUI main.py - override in Quickpod env vars
-ENV EXTRA_ARGS="--fast --disable-xformers --reserve-vram 0.5 --cuda-malloc --cuda-stream" \
+ENV EXTRA_ARGS="--fast --disable-xformers --reserve-vram 0.5 --cuda-malloc" \
     PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:512,roundup_power2_divisions:4" \
     CUDA_MODULE_LOADING="LAZY" \
     TORCH_CUDNN_V8_API_ENABLED=1 \
